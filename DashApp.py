@@ -93,14 +93,14 @@ def azure_procces(read_image):
         status = 'OperationStatus: Something went wrong...'
         return df_images_result, status, rectangle
 
-def mapa(lat,long):
+def mapa(lat,long,height='100%',width='90%'):
     '''
     Retorna un mapa centrado en el punto especificado
     :param lat: Latitud
     :param long: Longitud
     :return: Mapa centrado en los punto especificado
     '''
-    fig = folium.Map(location=[lat,long], zoom_start=12, height='100%',width='90%')
+    fig = folium.Map(location=[lat,long], zoom_start=12, height=height,width=width)
     return fig
 
 
@@ -144,16 +144,28 @@ with st.sidebar: ### Columna lateral de control
         if df is not None:
             st.write('Successfully connected')
             photo_ids = db_connection.get_photos_ids()
-
-    st.markdown('---')
-    if(option != 'Text Detection'):
+        st.markdown('---')
         st.markdown('# Filters')
-        photo_id = st.selectbox('Select Photo ID',  photo_ids)
+        photo_id = st.selectbox('Select Photo ID', photo_ids)
         seleted_class = st.selectbox('Select Class', ('Schools', 'Open Street Maps', 'Google Maps (Optional)'))
         seleted_second_division = st.selectbox('Select Second Division',
-                                           ('Second division', 'Open Street Maps', 'Google Maps (Optional)'))
+                                               ('Second division', 'Open Street Maps', 'Google Maps (Optional)'))
         seleted_third_division = st.selectbox('Select Third Division',
-                                          ('Third division', 'Open Street Maps', 'Google Maps (Optional)'))
+                                              ('Third division', 'Open Street Maps', 'Google Maps (Optional)'))
+
+    if option == 'Open Street Maps':  ### Acciones para la pestaña OSM
+        image_file = None
+        iniciar_proceso_OCR = False
+        photo_ids = db_connection.get_photos_ids()
+        st.markdown('---')
+        st.markdown('# Filters')
+        photo_id = st.selectbox('Select Photo ID', photo_ids)
+        seleted_class = st.selectbox('Select Class', ('Schools', 'Open Street Maps', 'Google Maps (Optional)'))
+        seleted_second_division = st.selectbox('Select Second Division',
+                                               ('Second division', 'Open Street Maps', 'Google Maps (Optional)'))
+        seleted_third_division = st.selectbox('Select Third Division',
+                                              ('Third division', 'Open Street Maps', 'Google Maps (Optional)'))
+
 
 
 info_DF = pd.DataFrame(
@@ -239,3 +251,13 @@ if option =='Chaparral':
     st.table(info_DF)
     if df is not None:
         st.table(df.loc[df['photo-name']==photo_id,:])
+
+### ----------- Open Street Maps-------------------
+#--------------------------------------------------
+
+if option == 'Open Street Maps':
+    st.write('Visualización de datos en fuentes colaborativas')
+    folium_static(mapa(3.72414, -75.4836,width='100%'))
+    st.markdown('---')
+    st.table(info_DF)
+
