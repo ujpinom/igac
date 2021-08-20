@@ -173,7 +173,7 @@ info_DF = pd.DataFrame(
              'latitud', 'Longitud'])
 
 st.title('IGAC DASHBOARD') ## DashBoard title
-col1, col2= st.beta_columns((1,0.9)) ### Dashboard layout ( two columns: one for showing the map and the another for showing images)
+col1, col2= st.columns((1,0.9)) ### Dashboard layout ( two columns: one for showing the map and the another for showing images)
 
 
 ### ----------- Text Detection-------------------
