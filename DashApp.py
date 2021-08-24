@@ -16,12 +16,15 @@ import getting_coordenates
 import db_connection
 import requests as req
 from io import BytesIO
-
+import Chaparral
+style1 = {'fillColor': '#CD200B ', 'color': '#CD200B '}
+style2 = {'fillColor': '#00FFFFFF', 'color': '#00FFFFFF'}
 ##### credential to connect to  the database in AWS
-host="igacproject.cbdjyxjidnrz.us-east-2.rds.amazonaws.com"
-password="1xqIOnpQXlNDXNzVhLps"
-user='uriel'
-database='igac_project'
+database='postgres'
+host='ls-52e8d6e6954df847f43dfed612cffff918fd05d2.ce51052aqdsa.us-east-1.rds.amazonaws.com'
+user='dbmasteruser'
+password='0+Gor71OC-[^8!%vvflRnqW35!G;Jbb['
+
 
 
 st.set_page_config(
@@ -100,7 +103,7 @@ def mapa(lat,long,height='100%',width='90%'):
     :param long: Longitud
     :return: Mapa centrado en los punto especificado
     '''
-    fig = folium.Map(location=[lat,long], zoom_start=12, height=height,width=width)
+    fig = folium.Map(location=[lat,long], zoom_start=12, width=width, height=height,tiles="stamenterrain")
     return fig
 
 
@@ -120,6 +123,10 @@ def download_link(object_to_download, download_filename, download_link_text):
 
 
 with st.sidebar: ### Columna lateral de control
+    title_image= load_image('igac_0.jpg')
+    width,hei= title_image.size
+    title_image=title_image.resize((int(width),int(hei/1.5)))
+    st.image(title_image)
     st.markdown('# Select a source')
     option = st.selectbox(
         '',
@@ -139,17 +146,18 @@ with st.sidebar: ### Columna lateral de control
         iniciar_proceso_OCR=False
         st.write('Connecting to Data Base...')
         photo_ids='An error occured'
-        df= db_connection.connect_db(database,host,user,password)
-
-        if df is not None:
-            st.write('Successfully connected')
-            photo_ids = db_connection.get_photos_ids()
+        cursor= db_connection.connect_db(database=database,host=host,user=user,password=password)
+        igacocr_df=db_connection.extract_from_chaparralocr(cursor) ## Contiene toda la info OCR de chaparral
+        veredas = igacocr_df.iloc[:, 13].unique()
+        photo_ids = igacocr_df.iloc[:, 1].unique()
+        veredas_df= Chaparral.leer_veredas_chaparral()  ### Contiene cada uno de los puntos de las veredas de Chaparral
+        cuadrants_dir_df= db_connection.extract_dir_cuandrants(cursor)
         st.markdown('---')
         st.markdown('# Filters')
         photo_id = st.selectbox('Select Photo ID', photo_ids)
         seleted_class = st.selectbox('Select Class', ('Schools', 'Open Street Maps', 'Google Maps (Optional)'))
         seleted_second_division = st.selectbox('Select Second Division',
-                                               ('Second division', 'Open Street Maps', 'Google Maps (Optional)'))
+                                               veredas)
         seleted_third_division = st.selectbox('Select Third Division',
                                               ('Third division', 'Open Street Maps', 'Google Maps (Optional)'))
 
@@ -197,13 +205,15 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
     info_DF ['ID-Photo']=image_file.name
     info_DF .drop(['0','1'],axis=1,inplace=True)
     st.markdown('---')
-    st.table(info_DF.head(5))
-    st.markdown('---')
+    st.subheader('DataFrame with detected toponyms and its coordenates')
+    st.dataframe(info_DF,width=1000,height=200)
     name_csv=image_file.name.split('.')[0]
     name_df =f'{name_csv}.csv'
     tmp_download_link = download_link(info_DF, name_df, 'Click here to download your data!')
+
     st.markdown(tmp_download_link, unsafe_allow_html=True)
-    m=mapa(lat,long)
+    st.markdown('---')
+    m=mapa(lat,long,width=580,height=500)
 
     for row in info_DF.index:
         lat=info_DF.loc[row,'lat_text']
@@ -238,26 +248,40 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
 ### ----------- Chaparral-------------------
 #------------------------------------------------
 if option =='Chaparral':
-    dir_photo= df.loc[df['photo-name']==photo_id,'s3-dir'].values[0]
+    dir_photo=''# df.loc[df['photo-name']==photo_id,'s3-dir'].values[0]
+    polygon_chaparral= Chaparral.leer_chaparral_polygon()
+    f = veredas_df.loc[veredas_df['Veredas'] == seleted_second_division, :]### Contiene las coordenadas de la vereda seleccionada
+    polygon_vereda= Chaparral.polygon_vereda_seleccionada(f)
+    mapa_chaparral = mapa(3.7728555555591194, -75.57493008952609, width=580, height=500)
+    im_s3,mapa_chaparral,info_impo=getting_coordenates.dibujar_bounding_boxes(ocr_df=igacocr_df,dir_df=cuadrants_dir_df,photo_id=photo_id,mapa=mapa_chaparral)
+
     with col1:
         st.write('Visualización de datos en fuentes colaborativas')
-        folium_static(mapa(3.72414, -75.4836))
+
+        folium.GeoJson(polygon_chaparral,
+                       name='chaparral'
+                       ).add_to(mapa_chaparral)
+        folium.GeoJson(polygon_vereda,
+                       name='chaparral',style_function=lambda x:style1
+                       ).add_to(mapa_chaparral)
+        folium_static(mapa_chaparral)
     with col2:
         st.write(f'Image from S3: {photo_id}')
-        response = req.get(dir_photo)
-        st.image(load_image(BytesIO(response.content)))
+        st.image(im_s3)
 
+    name_df = f'{photo_id}.csv'
+    tmp_download_link = download_link(info_impo, name_df, 'Click here to download your data!')
     st.markdown('---')
-    st.table(info_DF)
-    if df is not None:
-        st.table(df.loc[df['photo-name']==photo_id,:])
+    st.table(info_impo)
+    st.markdown('---')
+    st.markdown(tmp_download_link, unsafe_allow_html=True)
 
 ### ----------- Open Street Maps-------------------
 #--------------------------------------------------
 
 if option == 'Open Street Maps':
     st.write('Visualización de datos en fuentes colaborativas')
-    folium_static(mapa(3.72414, -75.4836,width='100%'))
+    folium_static(mapa(3.7728555555591194, -75.57493008952609,width=900))
     st.markdown('---')
     st.table(info_DF)
 

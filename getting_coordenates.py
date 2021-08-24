@@ -4,6 +4,10 @@ import webbrowser
 import pandas as pd
 import cv2 as cv
 import os
+from PIL import Image,ImageDraw
+import streamlit as st
+import requests as req
+from io import BytesIO
 
 def get_coordenates(df_img,vuelo,foto,geoj,w,h):
     row = geoj[(geoj['No_Vuelo'] == vuelo) & (geoj['No_foto'] == foto)]  # filtrando los datos de la foto
@@ -21,3 +25,65 @@ def get_coordenates(df_img,vuelo,foto,geoj,w,h):
         df_img.loc[row, 'lat_text'] = lat_text.copy()  # Add calculated latitude
 
     return df_img,north,east
+
+
+def load_image(image_file):
+    '''
+    retorna imagen
+    :param image_file: Dirección de la imagen a cargar
+    :return: Imagen
+    '''
+    img = Image.open(image_file)
+    img = img.convert('RGB')
+    return img
+
+##Dibuja los rectangulos sobre cada uno de los toponimos identificados
+def draw(fig,rectangles):
+    draw = ImageDraw.Draw(fig)
+    for points in rectangles:
+        x1, y1, x2, y2 = float(points[0]), float(points[1]), float(points[2]), float(points[3])
+        draw.rectangle(((x1, y1), (x2, y2)), outline="red", width=3)
+    return fig
+
+def markers(map,marker):
+
+    for points in marker:
+        topo=float(points[0])
+        long=float(points[1])
+        lat=float(points[2])
+        folium.Marker(
+            location=[lat, long],
+            popup=topo,
+            icon=folium.Icon(color="green"),
+        ).add_to(map)
+    return map
+
+
+def dibujar_bounding_boxes(ocr_df,dir_df,photo_id,mapa):
+
+    ## Cambiar el nombre de las columnas para un manejo conveniente
+    dir_df.columns = ['photo-id', 'c1', 'c2', 'c3', 'c4', 'dir']
+    ocr_df.columns = ['id', 'photo-id', 'topo', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'long', 'lat', 'vereda',
+                    'point']
+    ocr_df['long']=ocr_df['long'].astype('float')
+    ocr_df['lat'] = ocr_df['lat'].astype('float')
+
+    rectangles=ocr_df.loc[ocr_df['photo-id']==photo_id,['c0','c1','c4','c5']].values
+    markers=ocr_df.loc[ocr_df['photo-id']==photo_id,['topo','long','lat']].values
+    dir_aws=dir_df.loc[dir_df['photo-id'] == photo_id, 'dir'].values[0]
+    info_impo=ocr_df.loc[ocr_df['photo-id']==photo_id,['photo-id','topo','long','lat','vereda']]
+    response = req.get(dir_aws)
+    im_s3 = load_image(BytesIO(response.content))
+    im_s3= draw(im_s3,rectangles)
+
+    for points in markers:
+        long = float(points[1])
+        lat = float(points[2])
+        topo = f'Toponimo: {points[0]} \nLat: {lat}\n  Long: {long}'
+        folium.Marker(
+            location=[lat, long],
+            popup=topo,
+            icon=folium.Icon(color="green"),
+        ).add_to(mapa)
+
+    return im_s3,mapa,info_impo
