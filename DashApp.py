@@ -222,7 +222,7 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
     info_DF .drop(['0','1'],axis=1,inplace=True)
     st.markdown('---')
     st.subheader('DataFrame with detected toponyms and its coordenates')
-    st.dataframe(info_DF,width=1000,height=200)
+    st.table(info_DF)
     name_csv=image_file.name.split('.')[0]
     name_df =f'{name_csv}.csv'
     tmp_download_link = download_link(info_DF, name_df, 'Click here to download your data!')
@@ -235,9 +235,10 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
         lat=info_DF.loc[row,'lat_text']
         long=info_DF.loc[row,'lon_text']
         pop_up=info_DF.loc[row,'Toponym']
+        text_marker=f'Topónimo: {pop_up}\nLat: {lat}\nLong: {long}'
         folium.Marker(
             location=[lat, long],
-            popup=pop_up,
+            popup=text_marker,
             icon=folium.Icon(color="green"),
         ).add_to(m)
     with col1:
