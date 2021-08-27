@@ -62,6 +62,7 @@ idna @ file:///home/conda/feedstock_root/build_artifacts/idna_1609836280497/work
 importlib-metadata @ file:///D:/bld/importlib-metadata_1625463859705/work
 imutils==0.5.4
 ipykernel @ file:///D:/bld/ipykernel_1626728344247/work/dist/ipykernel-6.0.3-py3-none-any.whl
+ipyleaflet @ file:///home/conda/feedstock_root/build_artifacts/ipyleaflet_1623947084165/work
 ipython @ file:///D:/bld/ipython_1625027378576/work
 ipython-genutils==0.2.0
 ipywidgets @ file:///home/conda/feedstock_root/build_artifacts/ipywidgets_1609995587151/work
@@ -163,7 +164,7 @@ Shapely==1.7.1
 six @ file:///home/conda/feedstock_root/build_artifacts/six_1620240208055/work
 smmap @ file:///home/conda/feedstock_root/build_artifacts/smmap_1611376390914/work
 statsmodels @ file:///D:/bld/statsmodels_1612273747431/work
-streamlit @ file:///home/conda/feedstock_root/build_artifacts/streamlit_1626212479073/work
+streamlit==0.87.0
 streamlit-folium==0.4.0
 sympy @ file:///D:/bld/sympy_1618015526983/work
 tabulate @ file:///home/conda/feedstock_root/build_artifacts/tabulate_1614001031686/work
@@ -185,6 +186,7 @@ toolz @ file:///home/conda/feedstock_root/build_artifacts/toolz_1600973991856/wo
 tornado @ file:///D:/bld/tornado_1610094910414/work
 tqdm @ file:///home/conda/feedstock_root/build_artifacts/tqdm_1625664838498/work
 traitlets @ file:///home/conda/feedstock_root/build_artifacts/traitlets_1602771532708/work
+traittypes @ file:///home/conda/feedstock_root/build_artifacts/traittypes_1600843364635/work
 typing-extensions @ file:///home/conda/feedstock_root/build_artifacts/typing_extensions_1622748266870/work
 tzlocal @ file:///home/conda/feedstock_root/build_artifacts/tzlocal_1588939190034/work
 urllib3 @ file:///home/conda/feedstock_root/build_artifacts/urllib3_1624634538755/work

@@ -63,15 +63,14 @@ def dibujar_bounding_boxes(ocr_df,dir_df,photo_id,mapa):
 
     ## Cambiar el nombre de las columnas para un manejo conveniente
     dir_df.columns = ['photo-id', 'c1', 'c2', 'c3', 'c4', 'dir']
-    ocr_df.columns = ['id', 'photo-id', 'topo', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'long', 'lat', 'vereda',
-                    'point']
-    ocr_df['long']=ocr_df['long'].astype('float')
-    ocr_df['lat'] = ocr_df['lat'].astype('float')
 
-    rectangles=ocr_df.loc[ocr_df['photo-id']==photo_id,['c0','c1','c4','c5']].values
-    markers=ocr_df.loc[ocr_df['photo-id']==photo_id,['topo','long','lat']].values
+    ocr_df['Long']=ocr_df['Long'].astype('float')
+    ocr_df['Lat'] = ocr_df['Lat'].astype('float')
+
+    rectangles=ocr_df.loc[ocr_df['Photo-id']==photo_id,['c0','c1','c4','c5']].values
+    markers=ocr_df.loc[ocr_df['Photo-id']==photo_id,['Toponimo','Long','Lat']].values
     dir_aws=dir_df.loc[dir_df['photo-id'] == photo_id, 'dir'].values[0]
-    info_impo=ocr_df.loc[ocr_df['photo-id']==photo_id,['photo-id','topo','long','lat','vereda']]
+    info_impo=ocr_df.loc[ocr_df['Photo-id']==photo_id,['Photo-id','Toponimo','Long','Lat','Vereda']]
     response = req.get(dir_aws)
     im_s3 = load_image(BytesIO(response.content))
     im_s3= draw(im_s3,rectangles)
@@ -87,3 +86,22 @@ def dibujar_bounding_boxes(ocr_df,dir_df,photo_id,mapa):
         ).add_to(mapa)
 
     return im_s3,mapa,info_impo
+
+
+def get_all_info(mapa,ocr_df,clase):
+
+
+    if clase == 'All':
+        markers=ocr_df.loc[:,['Toponimo','Long','Lat']].values
+        for points in markers:
+            long = float(points[1])
+            lat = float(points[2])
+            topo = f'Toponimo: {points[0]} \nLat: {lat}\n  Long: {long}'
+            folium.Marker(
+                location=[lat, long],
+                popup=topo,
+                icon=folium.Icon(color="green"),
+            ).add_to(mapa)
+
+        return mapa
+    return mapa
