@@ -157,14 +157,16 @@ with st.sidebar: ### Columna lateral de control
         photo_ids='An error occured'
         cursor= db_connection.connect_db(database=database,host=host,user=user,password=password)
         igacocr_df=db_connection.extract_from_chaparralocr(cursor) ## Contiene toda la info OCR de chaparral
-        igacocr_df.columns = ['id', 'Photo-id', 'Toponimo', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'Long', 'Lat',
+        igacocr_df.columns = ['Photo-id', 'Toponimo', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'Long', 'Lat','Clase',
                           'Vereda',
                           'point']
+        igacocr_df.fillna('SIN CATEGORÍA', inplace=True)
         veredas = igacocr_df[['Vereda']].sort_values(by='Vereda')['Vereda'].unique()
         veredas_df= Chaparral.leer_veredas_chaparral()  ### Contiene cada uno de los puntos de las veredas de Chaparral
         cuadrants_dir_df= db_connection.extract_dir_cuandrants(cursor)
         st.markdown('---')
         all_info = st.checkbox('Show all info')
+        clases=
         st.markdown('# Filters')
         if all_info:
             seleted_class = st.selectbox('Select Class', ('All','Schools', 'Open Street Maps', 'Google Maps (Optional)'))

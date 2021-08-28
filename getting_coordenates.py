@@ -70,7 +70,7 @@ def dibujar_bounding_boxes(ocr_df,dir_df,photo_id,mapa):
     rectangles=ocr_df.loc[ocr_df['Photo-id']==photo_id,['c0','c1','c4','c5']].values
     markers=ocr_df.loc[ocr_df['Photo-id']==photo_id,['Toponimo','Long','Lat']].values
     dir_aws=dir_df.loc[dir_df['photo-id'] == photo_id, 'dir'].values[0]
-    info_impo=ocr_df.loc[ocr_df['Photo-id']==photo_id,['Photo-id','Toponimo','Long','Lat','Vereda']]
+    info_impo=ocr_df.loc[ocr_df['Photo-id']==photo_id,['Photo-id','Toponimo','Long','Lat','Vereda','Clase']]
     response = req.get(dir_aws)
     im_s3 = load_image(BytesIO(response.content))
     im_s3= draw(im_s3,rectangles)
