@@ -17,15 +17,24 @@ import db_connection
 import requests as req
 from io import BytesIO
 import Chaparral
+import psycopg2 as pg2
+
+###Estilos de color para los poligonos
 style1 = {'fillColor': '#CD200B ', 'color': '#CD200B '}
 style2 = {'fillColor': '#00FFFFFF', 'color': '#00FFFFFF'}
+
+### Distintos tipos de clase para los topónimos identificados
+clases = ['TODO','ALTO', 'ARROYO', 'CASERÍO', 'CAÑADA', 'CAÑO', 'CERRO', 'CHORRO',
+          'CIÉNAGA', 'CUCHILLA', 'HACIENDA', 'INSPECCIÓN DE POLICÍA', 'ISLA',
+          'LAGUNA', 'LOMA', 'MORRO', 'NOMBRE', 'PARAMO', 'PEÑÓN', 'PUNTA',
+          'QUEBRADA', 'RAUDAL', 'RIO', 'RÍO', 'SABANA', 'SERRANÍA',
+          'SIN CATEGORIZAR', 'SITIO', 'VEREDA', 'ZANJA', 'ZANJÓN']
+
 ##### credential to connect to  the database in AWS
 database='postgres'
 host='ls-52e8d6e6954df847f43dfed612cffff918fd05d2.ce51052aqdsa.us-east-1.rds.amazonaws.com'
 user='dbmasteruser'
 password='0+Gor71OC-[^8!%vvflRnqW35!G;Jbb['
-
-
 
 st.set_page_config(
     page_title="IGAC-PROJECT",
@@ -33,8 +42,6 @@ st.set_page_config(
     layout="wide",
   # initial_sidebar_state="expanded",
 )
-
-
 
 @st.cache(allow_output_mutation=True)
 def load_image(image_file):
@@ -47,7 +54,7 @@ def load_image(image_file):
     img = img.convert('RGB')
     return img
 
-
+## Inicia el proceso para la extración de los toponimos y sus respectivas bounding boxes
 def azure_procces(read_image):
     subscription_key = "b7fd69cb2fb04870842aff9954560f3b"  # "PASTE_YOUR_COMPUTER_VISION_SUBSCRIPTION_KEY_HERE"
     endpoint = "https://igac.cognitiveservices.azure.com/"  # "PASTE_YOUR_COMPUTER_VISION_ENDPOINT_HERE"
@@ -68,7 +75,7 @@ def azure_procces(read_image):
         read_result = computervision_client.get_read_result(operation_id)
         if read_result.status.lower() not in ['notstarted', 'running']:
             break
-        st.sidebar.write('Waiting for result...')
+        st.sidebar.write('Esperando por los resultados...')
         time.sleep(10)
 
     # Print results, line by line
@@ -115,16 +122,24 @@ def get_image_download_link(img,filename,text):
     return href
 
 
+@st.cache(allow_output_mutation=True)
+def get_query_results(sql):
+
+    # Connect to the PostgreSQL database server
+    with pg2.connect(host=host,
+                          port='5432',
+                          database=database,
+                          user=user,
+                          password=password) as conn:
+
+        # Execute query and return results as a pandas dataframe
+        df = pd.read_sql(sql, conn, index_col=None)
+    return df
+
+
 ## Descargar los datos en formato csv.
 def download_link(object_to_download, download_filename, download_link_text):
-    """
-      Generates a link to download the given object_to_download.
-      object_to_download (str, pd.DataFrame):  The object to be downloaded.
-      download_filename (str): filename and extension of file. e.g. mydata.csv, some_txt_output.txt
-      download_link_text (str): Text to display for download link.
-      Examples:
-      download_link(YOUR_DF, 'YOUR_DF.csv', 'Click here to download data!')
-      """
+
     if isinstance(object_to_download,pd.DataFrame):
         object_to_download = object_to_download.to_csv(index=False)
     b64 = base64.b64encode(object_to_download.encode()).decode()
@@ -136,69 +151,70 @@ with st.sidebar: ### Columna lateral de control
     width,hei= title_image.size
     title_image=title_image.resize((int(width),int(hei/1.5)))
     st.image(title_image)
-    st.markdown('# Select a source')
+    st.title('Seleccione una fuente')
     option = st.selectbox(
         '',
         ('Chaparral', 'Open Street Maps', 'Text Detection'))
-    st.write('You selected:', option)
+    st.write('Usted seleccionó:', option)
 
 
     if option == 'Text Detection':
         image_file = st.file_uploader("", type=['png', 'jpeg', 'jpg'])
-        flight_input = st.text_input("Enter flight number", 'f-016')## Get the flight number from the user
-        photo_input = st.text_input("Enter photo number", '328') ### Get the photo number from the user
+        flight_input = st.text_input("Ingrese el número de vuelo", 'f-016')## Get the flight number from the user
+        photo_input = st.text_input("Ingrese el número de la foto", '328') ### Get the photo number from the user
         iniciar_proceso_OCR = st.sidebar.button(label='Compute')
 
 
     if option == 'Chaparral':
+        sql_ocr = '''select * from chaparralocr'''
+        sql_cuadrante='''select * from chaparralquadrants'''
         image_file=None
         iniciar_proceso_OCR=False
-        st.write('Connecting to Data Base...')
+        st.write('Conectando con la base de datos...')
         photo_ids='An error occured'
-        cursor= db_connection.connect_db(database=database,host=host,user=user,password=password)
-        igacocr_df=db_connection.extract_from_chaparralocr(cursor) ## Contiene toda la info OCR de chaparral
+    #    cursor= db_connection.connect_db(database=database,host=host,user=user,password=password)
+        igacocr_df=get_query_results(sql_ocr) ## Contiene toda la info OCR de chaparral
         igacocr_df.columns = ['Photo-id', 'Toponimo', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'Long', 'Lat','Clase',
                           'Vereda',
                           'point']
         igacocr_df.fillna('SIN CATEGORÍA', inplace=True)
         veredas = igacocr_df[['Vereda']].sort_values(by='Vereda')['Vereda'].unique()
-        veredas_df= Chaparral.leer_veredas_chaparral()  ### Contiene cada uno de los puntos de las veredas de Chaparral
-        cuadrants_dir_df= db_connection.extract_dir_cuandrants(cursor)
-        st.markdown('---')
-        all_info = st.checkbox('Show all info')
 
-        st.markdown('# Filters')
+        veredas_df= Chaparral.leer_veredas_chaparral()  ### Contiene cada uno de los puntos de las veredas de Chaparral
+        cuadrants_dir_df= get_query_results(sql_cuadrante)
+        st.markdown('---')
+        st.write('Si el siguiente checkbox es seleccionado, usted podrá filtrar toda la información de chaparral por clases.'
+                'En caso contrario la información será filtrada a través de la selección de una vereda y su respectiva foto.')
+        all_info = st.checkbox('Mostrar toda la información')
+
+        st.markdown('# Filtros')
         if all_info:
-            seleted_class = st.selectbox('Select Class', ('All','Schools', 'Open Street Maps', 'Google Maps (Optional)'))
+            seleted_class = st.selectbox('Seleccione una clase', clases[1:])
         else:
-            seleted_second_division = st.selectbox('Select Third Division',
+            seleted_second_division = st.selectbox('Seleccione una vereda',
                                                    veredas)
             photo_ids = igacocr_df.loc[igacocr_df['Vereda'] == seleted_second_division, ['Photo-id']][
                 'Photo-id'].unique()
-            photo_id = st.selectbox('Select Photo ID', photo_ids)
-            seleted_class = st.selectbox('Select Class', ('All','Schools', 'Open Street Maps', 'Google Maps (Optional)'))
-
+            photo_id = st.selectbox('Seleccione una foto', photo_ids)
 
     if option == 'Open Street Maps':  ### Acciones para la pestaña OSM
+        sql_osm='''select * from chaparralosm'''
         image_file = None
         iniciar_proceso_OCR = False
-        photo_ids = db_connection.get_photos_ids()
+        st.write('Conectando con la base de datos...')
+  #      cursor = db_connection.connect_db(database=database, host=host, user=user, password=password)
         st.markdown('---')
-        st.markdown('# Filters')
-        photo_id = st.selectbox('Select Photo ID', photo_ids)
-        seleted_class = st.selectbox('Select Class', ('Schools', 'Open Street Maps', 'Google Maps (Optional)'))
-        seleted_second_division = st.selectbox('Select Second Division',
-                                               ('Second division', 'Open Street Maps', 'Google Maps (Optional)'))
-        seleted_third_division = st.selectbox('Select Third Division',
-                                              ('Third division', 'Open Street Maps', 'Google Maps (Optional)'))
-
+        st.markdown('# Filtros')
+        chaparralosm= get_query_results(sql_osm)
+        clases=np.array(chaparralosm.iloc[:, 37].value_counts().index)
+        seleted_class = st.selectbox('Seleccione una clase', clases[1:])
 
 
 info_DF = pd.DataFrame(
     columns=['ID-Photo', 'Toponym', 'Class', 'Corregimiento 2nd division', 'Veredas 3rd division',
              'latitud', 'Longitud'])
 
-st.title('IGAC DASHBOARD') ## DashBoard title
+st.title('GEOTEXT DASHBOARD') ## DashBoard title
 col1, col2= st.columns((1,0.9)) ### Dashboard layout ( two columns: one for showing the map and the another for showing images)
 
 
@@ -223,14 +239,13 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
     info_DF ['ID-Photo']=image_file.name
     info_DF .drop(['0','1'],axis=1,inplace=True)
     st.markdown('---')
-    st.subheader('DataFrame with detected toponyms and its coordenates')
+    st.subheader('Tabla con los topónimos detectados y sus coordenadas.')
     st.table(info_DF)
     name_csv=image_file.name.split('.')[0]
     name_df =f'{name_csv}.csv'
     tmp_download_link = download_link(info_DF, name_df, 'Click here to download your data!')
-
-    st.markdown(tmp_download_link, unsafe_allow_html=True)
     st.markdown('---')
+    st.markdown(tmp_download_link, unsafe_allow_html=True)
     m=mapa(lat,long,width=580,height=500)
 
     for row in info_DF.index:
@@ -263,6 +278,11 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
                 st.image(fig)
             else:
                 st.write(f'Image ID: {nname_image}')
+    name_img=nname_image
+    tmp_download_link_im = get_image_download_link(fig, name_img, 'Click here to download your image!')
+    st.markdown(tmp_download_link_im, unsafe_allow_html=True)
+
+
 
 ### ----------- Chaparral-------------------
 #------------------------------------------------
@@ -300,18 +320,39 @@ if option =='Chaparral' and  not all_info:
     st.markdown(tmp_download_link_photo, unsafe_allow_html=True)
 
 elif option =='Chaparral' and   all_info:
+    polygon_chaparral = Chaparral.leer_chaparral_polygon()
+
     mapa_chaparral = mapa(3.7728555555591194, -75.57493008952609, width='100%', height='100%')
-    mapa_chaparral=getting_coordenates.get_all_info(mapa_chaparral,igacocr_df,seleted_class)
+    folium.GeoJson(polygon_chaparral,
+                   name='chaparral'
+                   ).add_to(mapa_chaparral)
+    mapa_chaparral,info_impo=getting_coordenates.get_all_info(mapa_chaparral,igacocr_df,seleted_class)
     folium_static(mapa_chaparral)
-
-
+    name_df=f'{seleted_class}.csv'
+    tmp_download_link = download_link(info_impo, name_df, 'Click here to download your data!')
+    st.markdown('---')
+    st.table(info_impo)
+    st.markdown('---')
+    st.markdown(tmp_download_link, unsafe_allow_html=True)
 
 ### ----------- Open Street Maps-------------------
 #--------------------------------------------------
 
 if option == 'Open Street Maps':
-    st.write('Visualización de datos en fuentes colaborativas')
-    folium_static(mapa(3.7728555555591194, -75.57493008952609,width=900))
-    st.markdown('---')
-    st.table(info_DF)
+    polygon_chaparral = Chaparral.leer_chaparral_polygon()
 
+    mapa_chaparral = mapa(3.7728555555591194, -75.57493008952609, width='100%', height='100%')
+
+    folium.GeoJson(polygon_chaparral,
+                   name='chaparral'
+                   ).add_to(mapa_chaparral)
+    mapa_chaparral, info_impo = getting_coordenates.get_info_osm(mapa_chaparral, chaparralosm, seleted_class)
+
+    st.write('Visualización de datos en fuentes colaborativas')
+    name_df = f'{seleted_class}.csv'
+    tmp_download_link = download_link(info_impo, name_df, 'Click here to download your data!')
+    folium_static(mapa_chaparral)
+    st.markdown('---')
+    st.table(info_impo)
+    st.markdown('---')
+    st.markdown(tmp_download_link, unsafe_allow_html=True)

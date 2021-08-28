@@ -55,3 +55,11 @@ def extract_dir_cuandrants(cursor):
     data = cursor.fetchall()
     ver = pd.DataFrame(data)
     return ver
+
+
+def extract_from_chaparralosm(cursor):
+    sql = '''select * from chaparralosm'''
+    cursor.execute(sql)
+    data = cursor.fetchall()
+    ver = pd.DataFrame(data)
+    return ver

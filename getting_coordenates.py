@@ -68,7 +68,7 @@ def dibujar_bounding_boxes(ocr_df,dir_df,photo_id,mapa):
     ocr_df['Lat'] = ocr_df['Lat'].astype('float')
 
     rectangles=ocr_df.loc[ocr_df['Photo-id']==photo_id,['c0','c1','c4','c5']].values
-    markers=ocr_df.loc[ocr_df['Photo-id']==photo_id,['Toponimo','Long','Lat']].values
+    markers=ocr_df.loc[ocr_df['Photo-id']==photo_id,['Toponimo','Long','Lat','Clase']].values
     dir_aws=dir_df.loc[dir_df['photo-id'] == photo_id, 'dir'].values[0]
     info_impo=ocr_df.loc[ocr_df['Photo-id']==photo_id,['Photo-id','Toponimo','Long','Lat','Vereda','Clase']]
     response = req.get(dir_aws)
@@ -78,7 +78,7 @@ def dibujar_bounding_boxes(ocr_df,dir_df,photo_id,mapa):
     for points in markers:
         long = float(points[1])
         lat = float(points[2])
-        topo = f'Toponimo: {points[0]} \nLat: {lat}\n  Long: {long}'
+        topo = f'Toponimo: {points[0]} \nClase: {points[3]}\nLat: {lat}\n  Long: {long}'
         folium.Marker(
             location=[lat, long],
             popup=topo,
@@ -90,18 +90,38 @@ def dibujar_bounding_boxes(ocr_df,dir_df,photo_id,mapa):
 
 def get_all_info(mapa,ocr_df,clase):
 
+        info_impo=ocr_df.loc[ocr_df['Clase']==clase,['Toponimo','Long','Lat','Clase']]
+        info_impo['Long']=info_impo['Long'].astype('float')
+        info_impo['Lat'] = info_impo['Lat'].astype('float')
+        markers=info_impo.values
 
-    if clase == 'All':
-        markers=ocr_df.loc[:,['Toponimo','Long','Lat']].values
         for points in markers:
             long = float(points[1])
             lat = float(points[2])
-            topo = f'Toponimo: {points[0]} \nLat: {lat}\n  Long: {long}'
+            topo = f'Toponimo: {points[0]} \nClase: {points[3]}\nLat: {lat}\n  Long: {long}'
             folium.Marker(
                 location=[lat, long],
                 popup=topo,
                 icon=folium.Icon(color="green"),
             ).add_to(mapa)
 
-        return mapa
-    return mapa
+        return mapa,info_impo
+
+
+def get_info_osm(mapa,ocr_df,clase):
+    info_impo = ocr_df.loc[ocr_df['catalogo'] == clase, ['display_name', 'lon', 'lat', 'catalogo']]
+    info_impo['lon'] = info_impo['lon'].astype('float')
+    info_impo['lat'] = info_impo['lat'].astype('float')
+    markers = info_impo.values
+
+    for points in markers:
+        long = float(points[1])
+        lat = float(points[2])
+        topo = f'Toponimo: {points[0]} \nClase: {points[3]}\nLat: {lat}\n  Long: {long}'
+        folium.Marker(
+            location=[lat, long],
+            popup=topo,
+            icon=folium.Icon(color="green"),
+        ).add_to(mapa)
+
+    return mapa, info_impo
