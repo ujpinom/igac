@@ -166,7 +166,7 @@ with st.sidebar: ### Columna lateral de control
         cuadrants_dir_df= db_connection.extract_dir_cuandrants(cursor)
         st.markdown('---')
         all_info = st.checkbox('Show all info')
-        clases=
+
         st.markdown('# Filters')
         if all_info:
             seleted_class = st.selectbox('Select Class', ('All','Schools', 'Open Street Maps', 'Google Maps (Optional)'))
