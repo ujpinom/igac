@@ -28,18 +28,7 @@ def connect_db(database, host, user, password):
                             password=password)
     cursor1 = conexiion.cursor()
     return cursor1
-    # sql = '''select * from resources_info '''
-    # try:
-    #     cursor1.execute(sql)
-    #     data = cursor1.fetchall()
-    #     df = pd.DataFrame(data, columns=['ID', 'photo-name', 'extension', 's3-dir', 'type'])
-    #     consulta = ['tif', 'jpg']
-    #     photos_ids=tuple(df.loc[(df['extension'].isin(consulta)) & (df['type'] == 'aerofotografia'), ['photo-name']]\
-    #                      .values.ravel())
-    #     return df
-    # except:
-    #     cursor1.execute("ROLLBACK")
-    #     return None
+
 
 def extract_from_chaparralocr(cursor):
     sql = '''select * from chaparralocr'''
