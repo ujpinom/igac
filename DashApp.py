@@ -147,7 +147,7 @@ def download_link(object_to_download, download_filename, download_link_text):
 
 
 with st.sidebar: ### Columna lateral de control
-    title_image= load_image('LOGO_IGAC(3).png')
+    title_image= load_image('LOGO_IGAC.png')
     width,hei= title_image.size
     title_image=title_image.resize((int(width),int(hei/1.5)))
     st.image(title_image)
