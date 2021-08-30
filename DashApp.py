@@ -19,6 +19,8 @@ from io import BytesIO
 import Chaparral
 import psycopg2 as pg2
 
+nombre_archivo_cargado=''
+
 ###Estilos de color para los poligonos
 style1 = {'fillColor': '#CD200B ', 'color': '#CD200B '}
 style2 = {'fillColor': '#00FFFFFF', 'color': '#00FFFFFF'}
@@ -160,8 +162,17 @@ with st.sidebar: ### Columna lateral de control
 
     if option == 'Text Detection':
         image_file = st.file_uploader("", type=['png', 'jpeg', 'jpg'])
-        flight_input = st.text_input("Ingrese el número de vuelo", 'f-016')## Get the flight number from the user
-        photo_input = st.text_input("Ingrese el número de la foto", '328') ### Get the photo number from the user
+        st.write('El número de vuelo y foto se cargan automáticamente a partir del nombre de la foto si esta tiene el formato correcto'
+                 ' (e.g. c-1857 f-202.jpg). En caso contrario, puede ingresar estos datos manualmente. ')
+        numero_vuelo=''
+        numero_foto=''
+        if image_file is not None:
+            nombre_archivo_cargado= image_file.name
+            hola = nombre_archivo_cargado.rsplit('.')[0].split()
+            numero_vuelo = hola[0]
+            numero_foto = int(hola[1].split('-')[1])
+        flight_input = st.text_input("Ingrese el número de vuelo", numero_vuelo)## Get the flight number from the user
+        photo_input = st.text_input("Ingrese el número de la foto", numero_foto) ### Get the photo number from the user
         iniciar_proceso_OCR = st.sidebar.button(label='Compute')
 
 

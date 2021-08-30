@@ -10,7 +10,7 @@ import requests as req
 from io import BytesIO
 
 def get_coordenates(df_img,vuelo,foto,geoj,w,h):
-    row = geoj[(geoj['No_Vuelo'] == vuelo) & (geoj['No_foto'] == foto)]  # filtrando los datos de la foto
+    row = geoj[((geoj['No_Vuelo'] == vuelo.upper()) | (geoj['No_Vuelo'] == vuelo.lower())) & (geoj['No_foto'] == foto)]  # filtrando los datos de la foto
 
     west, south, east, north = row['geometry'].bounds.values[0,:]  # Aqui saca los limites de la foto
     for row in df_img.index:
@@ -90,7 +90,7 @@ def dibujar_bounding_boxes(ocr_df,dir_df,photo_id,mapa):
 
 def get_all_info(mapa,ocr_df,clase):
 
-        info_impo=ocr_df.loc[ocr_df['Clase']==clase,['Toponimo','Long','Lat','Clase']]
+        info_impo=ocr_df.loc[ocr_df['Clase']==clase,['Toponimo','Long','Lat','Clase','Photo-id']]
         info_impo['Long']=info_impo['Long'].astype('float')
         info_impo['Lat'] = info_impo['Lat'].astype('float')
         markers=info_impo.values
