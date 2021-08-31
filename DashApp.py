@@ -57,7 +57,8 @@ def load_image(image_file):
     return img
 
 ## Inicia el proceso para la extración de los toponimos y sus respectivas bounding boxes
-def azure_procces(read_image):
+@st.cache(allow_output_mutation=True)
+def azure_process(read_image):
     subscription_key = "b7fd69cb2fb04870842aff9954560f3b"  # "PASTE_YOUR_COMPUTER_VISION_SUBSCRIPTION_KEY_HERE"
     endpoint = "https://igac.cognitiveservices.azure.com/"  # "PASTE_YOUR_COMPUTER_VISION_ENDPOINT_HERE"
 
@@ -77,7 +78,6 @@ def azure_procces(read_image):
         read_result = computervision_client.get_read_result(operation_id)
         if read_result.status.lower() not in ['notstarted', 'running']:
             break
-        st.sidebar.write('Esperando por los resultados...')
         time.sleep(10)
 
     # Print results, line by line
@@ -124,7 +124,7 @@ def get_image_download_link(img,filename,text):
     return href
 
 
-@st.cache(allow_output_mutation=True)
+@st.cache(allow_output_mutation=True,suppress_st_warning=True)
 def get_query_results(sql):
 
     # Connect to the PostgreSQL database server
@@ -162,17 +162,8 @@ with st.sidebar: ### Columna lateral de control
 
     if option == 'Text Detection':
         image_file = st.file_uploader("", type=['png', 'jpeg', 'jpg'])
-        st.write('El número de vuelo y foto se cargan automáticamente a partir del nombre de la foto si esta tiene el formato correcto'
-                 ' (e.g. c-1857 f-202.jpg). En caso contrario, puede ingresar estos datos manualmente. ')
-        numero_vuelo=''
-        numero_foto=''
-        if image_file is not None:
-            nombre_archivo_cargado= image_file.name
-            hola = nombre_archivo_cargado.rsplit('.')[0].split()
-            numero_vuelo = hola[0]
-            numero_foto = int(hola[1].split('-')[1])
-        flight_input = st.text_input("Ingrese el número de vuelo", numero_vuelo)## Get the flight number from the user
-        photo_input = st.text_input("Ingrese el número de la foto", numero_foto) ### Get the photo number from the user
+        flight_input = st.text_input("Ingrese el número de vuelo", 'C-1857')## Get the flight number from the user
+        photo_input = st.text_input("Ingrese el número de la foto", '202') ### Get the photo number from the user
         iniciar_proceso_OCR = st.sidebar.button(label='Compute')
 
 
@@ -231,10 +222,10 @@ col1, col2= st.columns((1,0.9)) ### Dashboard layout ( two columns: one for show
 
 ### ----------- Text Detection-------------------
 #------------------------------------------------
-if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection':
+if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection' and photo_input.isnumeric():
 
     # Initialize the OCR proccess via Azure's API READ and returns a df with the detected text and coordinates.
-    df, status, rectangles = azure_procces(image_file)
+    df, status, rectangles = azure_process(image_file)
     df = text_cleance.limpieza_text_detected(df)
 
     all_country = gpd.read_file("Cob_Clasificacion_Analoga.json", driver="GeoJSON")
@@ -246,19 +237,20 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
     w = im.width
     h = im.height
 
-    info_DF,lat,long = getting_coordenates.get_coordenates(df, vuelo, foto, geoj, w, h)
+    info_DF,lat,long,poligono= getting_coordenates.get_coordenates(df, vuelo, foto, geoj, w, h)
     info_DF ['ID-Photo']=image_file.name
     info_DF .drop(['0','1'],axis=1,inplace=True)
     st.markdown('---')
     st.subheader('Tabla con los topónimos detectados y sus coordenadas.')
     st.table(info_DF)
+
     name_csv=image_file.name.split('.')[0]
     name_df =f'{name_csv}.csv'
     tmp_download_link = download_link(info_DF, name_df, 'Click here to download your data!')
     st.markdown('---')
     st.markdown(tmp_download_link, unsafe_allow_html=True)
     m=mapa(lat,long,width=580,height=500)
-
+    folium.GeoJson(poligono,name='chaparral_photo').add_to(m)
     for row in info_DF.index:
         lat=info_DF.loc[row,'lat_text']
         long=info_DF.loc[row,'lon_text']
@@ -293,6 +285,8 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
     tmp_download_link_im = get_image_download_link(fig, name_img, 'Click here to download your image!')
     st.markdown(tmp_download_link_im, unsafe_allow_html=True)
 
+else:
+    st.sidebar.write('Revise si ha cargado una imágen ó si el número de la foto  es de tipo entero.')
 
 
 ### ----------- Chaparral-------------------

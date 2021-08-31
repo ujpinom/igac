@@ -11,8 +11,9 @@ from io import BytesIO
 
 def get_coordenates(df_img,vuelo,foto,geoj,w,h):
     row = geoj[((geoj['No_Vuelo'] == vuelo.upper()) | (geoj['No_Vuelo'] == vuelo.lower())) & (geoj['No_foto'] == foto)]  # filtrando los datos de la foto
-
+    pol=geoj[((geoj['No_Vuelo'] == vuelo.upper()) | (geoj['No_Vuelo'] == vuelo.lower())) & (geoj['No_foto'] == foto)]
     west, south, east, north = row['geometry'].bounds.values[0,:]  # Aqui saca los limites de la foto
+
     for row in df_img.index:
         'longitudes'
         point_0 = float(df_img.loc[row, '0'])  # pixel 0 width - longitude
@@ -24,7 +25,9 @@ def get_coordenates(df_img,vuelo,foto,geoj,w,h):
         df_img.loc[row, 'lon_text'] = lon_text.copy()  # Add calculated longitude
         df_img.loc[row, 'lat_text'] = lat_text.copy()  # Add calculated latitude
 
-    return df_img,north,east
+
+    poli=pol['geometry'][pol.index[0]]
+    return df_img,north,east,poli
 
 
 def load_image(image_file):
