@@ -19,7 +19,6 @@ from io import BytesIO
 import Chaparral
 import psycopg2 as pg2
 
-nombre_archivo_cargado=''
 
 ###Estilos de color para los poligonos
 style1 = {'fillColor': '#CD200B ', 'color': '#CD200B '}
@@ -115,8 +114,11 @@ def mapa(lat,long,height='100%',width='90%'):
     fig = folium.Map(location=[lat,long], zoom_start=12, width=width, height=height,tiles="stamenterrain")
     return fig
 
-#descargar las imagenes procesadas
+
 def get_image_download_link(img,filename,text):
+    '''
+    Retorna un link para descargar la imagen ya procesada.
+    '''
     buffered = BytesIO()
     img.save(buffered, format="JPEG")
     img_str = base64.b64encode(buffered.getvalue()).decode()
@@ -126,6 +128,10 @@ def get_image_download_link(img,filename,text):
 
 @st.cache(allow_output_mutation=True,suppress_st_warning=True)
 def get_query_results(sql):
+    '''
+    Recibe un sentecia SQL, se conecta a la base de datos y luego retorna el resultado de la sentencia SQL como un
+    objecto de tipo DataFrame
+    '''
 
     # Connect to the PostgreSQL database server
     with pg2.connect(host=host,
@@ -139,47 +145,59 @@ def get_query_results(sql):
     return df
 
 
-## Descargar los datos en formato csv.
-def download_link(object_to_download, download_filename, download_link_text):
 
+def download_link(object_to_download, download_filename, download_link_text):
+    '''
+    Retorna un link para descargar la información procesada en formato csv.
+    '''
     if isinstance(object_to_download,pd.DataFrame):
         object_to_download = object_to_download.to_csv(index=False)
     b64 = base64.b64encode(object_to_download.encode()).decode()
     return f'<a href="data:file/txt;base64,{b64}" download="{download_filename}">{download_link_text}</a>'
 
+#-------- Porción de código dedicado a la barra lateral del DashBoard-----#
+####                                                                #####
+#--------------------------------------------------------------------------#
+
 
 with st.sidebar: ### Columna lateral de control
-    title_image= load_image('LOGO_IGAC.png')
+    title_image= load_image('LOGO_IGAC.png')  ## Carga el logo del Dash
     width,hei= title_image.size
     title_image=title_image.resize((int(width),int(hei/1.5)))
     st.image(title_image)
     st.title('Seleccione una fuente')
-    option = st.selectbox(
-        '',
-        ('Chaparral', 'Open Street Maps', 'Text Detection'))
+    option = st.selectbox(('Chaparral', 'Open Street Maps', 'Text Detection')) # Se selecciona uno de los 3 principales procesos
     st.write('Usted seleccionó:', option)
 
-
+    #Se seleccionó la extración de topónimos de una imágen
     if option == 'Text Detection':
-        image_file = st.file_uploader("", type=['png', 'jpeg', 'jpg'])
+        image_file = st.file_uploader("", type=['png', 'jpeg', 'jpg']) ## Carga la imagen a la cual se aplicará el OCR
         flight_input = st.text_input("Ingrese el número de vuelo", 'C-1857')## Get the flight number from the user
         photo_input = st.text_input("Ingrese el número de la foto", '202') ### Get the photo number from the user
-        iniciar_proceso_OCR = st.sidebar.button(label='Compute')
+        iniciar_proceso_OCR = st.sidebar.button(label='Compute')  ## Boton para iniciar el proceso OCR.
 
-
+    #Se seleccionó la opción Chaparral, por lo que toda la información exclusiva de Chaparral es obtenida pare efectos de filtrado
     if option == 'Chaparral':
+        ##Sentencia SQL para obtener toda la información contenida en la tabla chaparralocr
         sql_ocr = '''select * from chaparralocr'''
+        ##Sentencia SQL para obtener toda la información contenida en la tabla chaparralquadrants
         sql_cuadrante='''select * from chaparralquadrants'''
+
         image_file=None
         iniciar_proceso_OCR=False
         st.write('Conectando con la base de datos...')
         photo_ids='An error occured'
     #    cursor= db_connection.connect_db(database=database,host=host,user=user,password=password)
         igacocr_df=get_query_results(sql_ocr) ## Contiene toda la info OCR de chaparral
+
         igacocr_df.columns = ['Photo-id', 'Toponimo', 'c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'Long', 'Lat','Clase',
                           'Vereda',
-                          'point']
+                          'point']  ## Renombra cada una de las columnas de la tabla chaparralocr ahora convertida a dataframe
+
+        #El dataframe anterior contiene elementos nulos,los cuales son elementos no categorizados.
         igacocr_df.fillna('SIN CATEGORÍA', inplace=True)
+
+        #Se obtiene cada una de las veredas ordendas alfabeticámente, las cuales se usaran posteriormente como filtro.
         veredas = igacocr_df[['Vereda']].sort_values(by='Vereda')['Vereda'].unique()
 
         veredas_df= Chaparral.leer_veredas_chaparral()  ### Contiene cada uno de los puntos de las veredas de Chaparral
@@ -189,6 +207,7 @@ with st.sidebar: ### Columna lateral de control
                 'En caso contrario la información será filtrada a través de la selección de una vereda y su respectiva foto.')
         all_info = st.checkbox('Mostrar toda la información')
 
+        ##Diferentes filtros para trabajar sobre la información de Chaparral.
         st.markdown('# Filtros')
         if all_info:
             seleted_class = st.selectbox('Seleccione una clase', clases[1:])
@@ -199,6 +218,7 @@ with st.sidebar: ### Columna lateral de control
                 'Photo-id'].unique()
             photo_id = st.selectbox('Seleccione una foto', photo_ids)
 
+    #Se seleccionó la opción que extrae toda la información de Chaparral obtenida por medio de Open Street Maps
     if option == 'Open Street Maps':  ### Acciones para la pestaña OSM
         sql_osm='''select * from chaparralosm'''
         image_file = None
@@ -212,22 +232,22 @@ with st.sidebar: ### Columna lateral de control
         seleted_class = st.selectbox('Seleccione una clase', clases[1:])
 
 
-info_DF = pd.DataFrame(
-    columns=['ID-Photo', 'Toponym', 'Class', 'Corregimiento 2nd division', 'Veredas 3rd division',
-             'latitud', 'Longitud'])
-
 st.title('GEOTEXT DASHBOARD') ## DashBoard title
 col1, col2= st.columns((1,0.9)) ### Dashboard layout ( two columns: one for showing the map and the another for showing images)
 
 
-### ----------- Text Detection-------------------
-#------------------------------------------------
+### ----------- -------------Text Detection---------------------------------------------------------------
+#--------------------------------------------------------------------------------------------
 if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection' and photo_input.isnumeric():
 
-    # Initialize the OCR proccess via Azure's API READ and returns a df with the detected text and coordinates.
+    ## Inicializa el proceso OCR a través de la API Read de Azure y retorna un DataFrame con los topónimos dectectados y sus respectivos puntos
+    # que conforman la bounding box
     df, status, rectangles = azure_process(image_file)
+
+    # Se le aplica a los topónimos detectados una serie de pasos con el propósito de obtener la información más relevante
     df = text_cleance.limpieza_text_detected(df)
 
+    ## Se lee el archivo que contiene los números de vuelos, número de foto y las respectivas coordenadas abarcadas por la foto cargada
     all_country = gpd.read_file("Cob_Clasificacion_Analoga.json", driver="GeoJSON")
 
     vuelo = flight_input  # all_country['No_Vuelo']
@@ -237,6 +257,8 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
     w = im.width
     h = im.height
 
+    #Se obtienen las coordenadas aproximadas de cada uno de los topónimos identificados previamente. También se obtiene el poligono que da forma al
+    # territorio de Chaparral
     info_DF,lat,long,poligono= getting_coordenates.get_coordenates(df, vuelo, foto, geoj, w, h)
     info_DF ['ID-Photo']=image_file.name
     info_DF .drop(['0','1'],axis=1,inplace=True)
@@ -244,13 +266,18 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
     st.subheader('Tabla con los topónimos detectados y sus coordenadas.')
     st.table(info_DF)
 
+    ## Las siguientes cinco líneas de código están relacionadas con la preparación de la información para su posterior descargue
     name_csv=image_file.name.split('.')[0]
     name_df =f'{name_csv}.csv'
     tmp_download_link = download_link(info_DF, name_df, 'Click here to download your data!')
     st.markdown('---')
     st.markdown(tmp_download_link, unsafe_allow_html=True)
+
     m=mapa(lat,long,width=580,height=500)
-    folium.GeoJson(poligono,name='chaparral_photo').add_to(m)
+    folium.GeoJson(poligono,name='chaparral_photo').add_to(m) ## Se adiciona el poligono de chaparral al folium
+
+    # Agrega marcadores al mapa, los cuales se ubican en la posición en la que fue detectado el topónimo. Cada marcador contiene el topónimo identificado,
+    # así como sus respectivas coordenadas
     for row in info_DF.index:
         lat=info_DF.loc[row,'lat_text']
         long=info_DF.loc[row,'lon_text']
@@ -261,9 +288,13 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
             popup=text_marker,
             icon=folium.Icon(color="green"),
         ).add_to(m)
+
+    # Se muestra el mapa en la columna 1.
     with col1:
         st.write('Visualización de datos en fuentes colaborativas')
         folium_static(m)
+
+    ## En la columna 2 se muestra la imágen cargada con cada uno de los topónimos identificados rodeados por rectángulos rojos
     with col2:
         nname_image = 'No image loaded'
         if option == 'Text Detection':
@@ -281,10 +312,13 @@ if iniciar_proceso_OCR and image_file is not None and option == 'Text Detection'
                 st.image(fig)
             else:
                 st.write(f'Image ID: {nname_image}')
+
+    ## Las siguientes tres líneas de código tienen que ver con el proceso para descargar la imágen ya procesada
     name_img=nname_image
     tmp_download_link_im = get_image_download_link(fig, name_img, 'Click here to download your image!')
     st.markdown(tmp_download_link_im, unsafe_allow_html=True)
 
+## No inicia el proceso OCR porque no se ha cargado una imágen o el número de vuelo ingresado no es de tipo entero
 else:
     st.sidebar.write('Revise si ha cargado una imágen ó si el número de la foto  es de tipo entero.')
 
@@ -293,12 +327,16 @@ else:
 #------------------------------------------------
 if option =='Chaparral' and  not all_info:
     dir_photo=''# df.loc[df['photo-name']==photo_id,'s3-dir'].values[0]
-    polygon_chaparral= Chaparral.leer_chaparral_polygon()
+    polygon_chaparral= Chaparral.leer_chaparral_polygon() # Retorna el poligono de Chaparral
     f = veredas_df.loc[veredas_df['Veredas'] == seleted_second_division, :]### Contiene las coordenadas de la vereda seleccionada
-    polygon_vereda= Chaparral.polygon_vereda_seleccionada(f)
-    mapa_chaparral = mapa(3.7728555555591194, -75.57493008952609, width=580, height=500)
+    polygon_vereda= Chaparral.polygon_vereda_seleccionada(f)  ## Retorna el poligono que delimita el territorio de la vereda seleccionada
+    mapa_chaparral = mapa(3.7728555555591194, -75.57493008952609, width=580, height=500) ## Crea un nuevo mapa centrado en Chaparral
+
+    ## Se carga la imagen desde AWS S3 correspondiente al nombre de la foto seleccionado, así como su información más importante
     im_s3,mapa_chaparral,info_impo=getting_coordenates.dibujar_bounding_boxes(ocr_df=igacocr_df,dir_df=cuadrants_dir_df,photo_id=photo_id,mapa=mapa_chaparral)
 
+    ## Se muestra el mapa en la columna 1, el cual contiene el poligono de Chaparral, el poligono de la veredad seleccionada y cada uno de los marcadores
+    ## correspodientes a los topónimos identificados en la respectiva imágen.
     with col1:
         st.write('Visualización de datos en fuentes colaborativas')
 
@@ -309,10 +347,13 @@ if option =='Chaparral' and  not all_info:
                        name='chaparral',style_function=lambda x:style1
                        ).add_to(mapa_chaparral)
         folium_static(mapa_chaparral)
+
+    ## Muestra la imágen que se extrajo de S3
     with col2:
         st.write(f'Image from S3: {photo_id}')
         st.image(im_s3)
 
+    ## Descargar la información en formato csv. Descargar la imágen procesada.
     name_df = f'{photo_id}.csv'
     name_photo=f'{photo_id}.png'
     tmp_download_link = download_link(info_impo, name_df, 'Click here to download your data!')
@@ -324,6 +365,8 @@ if option =='Chaparral' and  not all_info:
 
     st.markdown(tmp_download_link_photo, unsafe_allow_html=True)
 
+
+## Se dispone de toda la información  de Chaparral, con el propósito de ser filtrada en base a las clases identificadas (quebrada, paramo, vereda...)
 elif option =='Chaparral' and   all_info:
     polygon_chaparral = Chaparral.leer_chaparral_polygon()
 
@@ -344,13 +387,16 @@ elif option =='Chaparral' and   all_info:
 #--------------------------------------------------
 
 if option == 'Open Street Maps':
-    polygon_chaparral = Chaparral.leer_chaparral_polygon()
+    polygon_chaparral = Chaparral.leer_chaparral_polygon()  ## Poligono de Chaparral
 
     mapa_chaparral = mapa(3.7728555555591194, -75.57493008952609, width='100%', height='100%')
 
     folium.GeoJson(polygon_chaparral,
                    name='chaparral'
                    ).add_to(mapa_chaparral)
+
+    ## Retorna el mapa de chaparral con los marcadores correspondientes a la clase selecionada. También retorna un DataFrame con toda esta información
+    ## para luego ser descargada en formato csv.
     mapa_chaparral, info_impo = getting_coordenates.get_info_osm(mapa_chaparral, chaparralosm, seleted_class)
 
     st.write('Visualización de datos en fuentes colaborativas')
