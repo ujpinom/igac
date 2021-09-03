@@ -166,7 +166,7 @@ with st.sidebar: ### Columna lateral de control
     title_image=title_image.resize((int(width),int(hei/1.5)))
     st.image(title_image)
     st.title('Seleccione una fuente')
-    option = st.selectbox(('Chaparral', 'Open Street Maps', 'Text Detection')) # Se selecciona uno de los 3 principales procesos
+    option = st.selectbox('',('Chaparral', 'Open Street Maps', 'Text Detection')) # Se selecciona uno de los 3 principales procesos
     st.write('Usted seleccionó:', option)
 
     #Se seleccionó la extración de topónimos de una imágen
